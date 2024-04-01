@@ -19,21 +19,25 @@ func main() {
 		"https://graph.microsoft.com",
 	}
 
+	channel := make(chan string)
+
 	for _, api := range apis {
-		go checkApi(api)
+		go checkApi(api, channel)
 	}
 
-	time.Sleep(2 * time.Second)
+	for i := 0; i < len(apis); i++ {
+		fmt.Print(<-channel)
+	}
 
 	elapsed := time.Since(startTime)
 
 	fmt.Printf("¡Listo, tomó %v segundos!\n", elapsed.Seconds())
 }
 
-func checkApi(api string) {
+func checkApi(api string, channel chan string) {
 	if _, err := http.Get(api); err != nil {
-		fmt.Printf("¡Error: %s esta caído!\n", api)
+		channel <- fmt.Sprintf("¡Error: %s esta caído!\n", api)
 		return
 	}
-	fmt.Printf("¡Success: %s está en funcionamiento!\n", api)
+	channel <- fmt.Sprintf("¡Success: %s está en funcionamiento!\n", api)
 }
