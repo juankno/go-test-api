@@ -20,8 +20,10 @@ func main() {
 	}
 
 	for _, api := range apis {
-		checkApi(api)
+		go checkApi(api)
 	}
+
+	time.Sleep(2 * time.Second)
 
 	elapsed := time.Since(startTime)
 
