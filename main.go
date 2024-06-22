@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 )
 
 func main() {
-
 	startTime := time.Now()
 
 	apis := []string{
@@ -19,25 +19,44 @@ func main() {
 		"https://graph.microsoft.com",
 	}
 
-	channel := make(chan string)
+	var wg sync.WaitGroup
+	wg.Add(len(apis))
+
+	results := make(chan string, len(apis))
 
 	for _, api := range apis {
-		go checkApi(api, channel)
+		go checkApi(api, results, &wg)
 	}
 
-	for i := 0; i < len(apis); i++ {
-		fmt.Print(<-channel)
+	wg.Wait()
+	close(results)
+
+	for result := range results {
+		fmt.Print(result)
 	}
 
 	elapsed := time.Since(startTime)
-
 	fmt.Printf("¡Listo, tomó %v segundos!\n", elapsed.Seconds())
 }
 
-func checkApi(api string, channel chan string) {
-	if _, err := http.Get(api); err != nil {
-		channel <- fmt.Sprintf("¡Error: %s esta caído!\n", api)
+func checkApi(api string, results chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	client := http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(api)
+	if err != nil {
+		results <- fmt.Sprintf("¡Error: %s está caído! Detalle: %v\n", api, err)
 		return
 	}
-	channel <- fmt.Sprintf("¡Success: %s está en funcionamiento!\n", api)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		results <- fmt.Sprintf("¡Error: %s devolvió estado %d!\n", api, resp.StatusCode)
+		return
+	}
+
+	results <- fmt.Sprintf("¡Success: %s está en funcionamiento!\n", api)
 }
